@@ -12,6 +12,7 @@ import (
 	"Orkflow/internal/engine"
 	"Orkflow/internal/memory"
 	"Orkflow/internal/parser"
+	"Orkflow/internal/vectorstore"
 	"Orkflow/pkg/types"
 
 	"github.com/spf13/cobra"
@@ -23,6 +24,7 @@ var (
 	userPrompt     string
 	useProvider    string
 	useModel       string
+	smartContext   bool
 )
 
 var runCmd = &cobra.Command{
@@ -37,6 +39,7 @@ Session Options:
   --session <id>    Continue a specific session
   --continue        Continue the most recent session
   --prompt <text>   Provide input prompt for the session
+  --smart-context   Auto-inject relevant context from past sessions (requires Ollama)
 
 Model Override:
   --use-provider    Override provider for all agents (e.g., ollama, gemini)
@@ -44,6 +47,7 @@ Model Override:
 
 Examples:
   orka run workflow.yaml
+  orka run workflow.yaml --smart-context
   orka run workflow.yaml --use-provider ollama --use-model llama3
   orka run workflow.yaml --continue --prompt "Follow up question"`,
 	Args: cobra.ExactArgs(1),
@@ -114,6 +118,34 @@ Examples:
 			fmt.Printf("💬 User prompt: %s\n", userPrompt)
 		}
 
+		// Handle Smart Context (Vector Search)
+		if smartContext {
+			fmt.Println("🧠 Smart Context: Searching past sessions...")
+			// TODO: Make embedding model configurable
+			store, err := vectorstore.NewChromemStoreWithOllama("nomic-embed-text")
+			if err == nil {
+				defer store.Close()
+				query := userPrompt
+				if query == "" {
+					query = "workflow execution context" // Default query if no prompt
+				}
+
+				results, err := store.Search(query, 3)
+				if err == nil && len(results) > 0 {
+					fmt.Printf("   Found %d relevant past messages. Injecting into context.\n", len(results))
+					contextMsg := "=== RELEVANT PAST CONTEXT ===\n"
+					for _, r := range results {
+						contextMsg += fmt.Sprintf("From Session %s:\n%s\n---\n", r.ID, r.Content)
+					}
+					session.AddMessage("system", "context", contextMsg)
+				} else {
+					fmt.Println("   No relevant context found.")
+				}
+			} else {
+				fmt.Printf("   Warning: Smart context failed (is Ollama running?): %v\n", err)
+			}
+		}
+
 		executor := engine.NewExecutor(config)
 
 		// Pass session history (including user prompt) to executor
@@ -152,6 +184,20 @@ Examples:
 			fmt.Printf("Warning: Could not save session: %v\n", err)
 		}
 
+		// Index session in vector store
+		go func() {
+			store, err := vectorstore.NewChromemStoreWithOllama("nomic-embed-text")
+			if err == nil {
+				fmt.Print("🧠 Indexing session...")
+				if err := vectorstore.IndexSession(store, session); err != nil {
+					fmt.Printf(" failed: %v\n", err)
+				} else {
+					fmt.Println(" done.")
+				}
+				store.Close()
+			}
+		}()
+
 		// Cleanup old sessions
 		memory.CleanupOldSessions()
 
@@ -166,6 +212,7 @@ func init() {
 	runCmd.Flags().StringVar(&sessionID, "session", "", "Continue a specific session by ID")
 	runCmd.Flags().BoolVar(&continueLatest, "continue", false, "Continue the most recent session")
 	runCmd.Flags().StringVarP(&userPrompt, "prompt", "p", "", "Provide input prompt for the session")
+	runCmd.Flags().BoolVar(&smartContext, "smart-context", false, "Auto-inject relevant context from past sessions")
 	runCmd.Flags().StringVar(&useProvider, "use-provider", "", "Override provider for all agents (e.g., ollama, gemini)")
 	runCmd.Flags().StringVar(&useModel, "use-model", "", "Override model for all agents (e.g., llama3, gemini-2.5-flash)")
 }
