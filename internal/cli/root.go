@@ -22,6 +22,7 @@ var rootCmd = &cobra.Command{
 to define, validate, and execute workflows using YAML configuration files.
 
 Examples:
+  orka config --api "sk-xxx"    Set your API key
   orka run workflow.yaml        Run a workflow
   orka validate workflow.yaml   Validate a workflow file
   orka --help                   Show this help message`,
