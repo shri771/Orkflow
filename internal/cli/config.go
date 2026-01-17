@@ -26,6 +26,8 @@ var (
 	model    string
 	provider string
 	show     bool
+	global   bool
+	local    bool
 )
 
 // configCmd represents the config command
@@ -34,20 +36,25 @@ var configCmd = &cobra.Command{
 	Short: "Configure orka settings",
 	Long: `Configure orka settings like API key, project name, model, and provider.
 
-Configuration is stored in $HOME/.orka.yaml
+Configuration can be stored globally or locally:
+  --global    Save to ~/.orka.yaml (user-wide, default)
+  --local     Save to ./.orka.yaml (project-specific)
+
+Local config takes precedence over global config when running orka.
 
 Examples:
-  orka config --api "sk-xxx"           Set API key
-  orka config --name "my-project"      Set project name
-  orka config --model "gpt-4"          Set default model
-  orka config --provider "openai"      Set default provider
-  orka config --show                   Show current configuration`,
+  orka config --api "sk-xxx" --global     Set global API key
+  orka config --name "my-project" --local Set project-specific name
+  orka config --model "gpt-4"             Set default model (global)
+  orka config --show                      Show current configuration
+  orka config --show --local              Show local project config`,
 	Run: func(cmd *cobra.Command, args []string) {
-		configPath := getConfigPath()
+		// Determine which config to use
+		configPath := getConfigPathWithScope()
 
 		// If --show flag, display current config
 		if show {
-			showConfig(configPath)
+			showConfigWithScope()
 			return
 		}
 
@@ -62,8 +69,13 @@ Examples:
 			fmt.Println("  --provider <name>  Set default provider")
 			fmt.Println("  --show             Show current configuration")
 			fmt.Println()
+			fmt.Println("Scope options:")
+			fmt.Println("  --global           Save to ~/.orka.yaml (default)")
+			fmt.Println("  --local            Save to ./.orka.yaml (project)")
+			fmt.Println()
 			fmt.Println("Example:")
-			fmt.Println("  orka config --api \"sk-xxx\" --provider \"openai\"")
+			fmt.Println("  orka config --api \"sk-xxx\" --provider \"openai\" --global")
+			fmt.Println("  orka config --name \"my-project\" --local")
 			os.Exit(1)
 		}
 
@@ -94,7 +106,11 @@ Examples:
 			os.Exit(1)
 		}
 
-		fmt.Printf("\nConfiguration saved to: %s\n", configPath)
+		scope := "global"
+		if local {
+			scope = "local"
+		}
+		fmt.Printf("\nConfiguration saved to: %s (%s)\n", configPath, scope)
 	},
 }
 
@@ -106,15 +122,34 @@ func init() {
 	configCmd.Flags().StringVar(&model, "model", "", "Default AI model to use")
 	configCmd.Flags().StringVar(&provider, "provider", "", "AI provider (openai, anthropic, etc.)")
 	configCmd.Flags().BoolVar(&show, "show", false, "Show current configuration")
+	configCmd.Flags().BoolVar(&global, "global", false, "Use global config (~/.orka.yaml)")
+	configCmd.Flags().BoolVar(&local, "local", false, "Use local config (./.orka.yaml)")
 }
 
-func getConfigPath() string {
+func getGlobalConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
 		os.Exit(1)
 	}
 	return filepath.Join(home, ".orka.yaml")
+}
+
+func getLocalConfigPath() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
+		os.Exit(1)
+	}
+	return filepath.Join(cwd, ".orka.yaml")
+}
+
+func getConfigPathWithScope() string {
+	if local {
+		return getLocalConfigPath()
+	}
+	// Default to global
+	return getGlobalConfigPath()
 }
 
 func loadConfig(path string) *Config {
@@ -134,6 +169,35 @@ func loadConfig(path string) *Config {
 	return config
 }
 
+// LoadEffectiveConfig loads config with local taking precedence over global
+func LoadEffectiveConfig() *Config {
+	globalConfig := loadConfig(getGlobalConfigPath())
+	localConfig := loadConfig(getLocalConfigPath())
+
+	// Merge: local overrides global
+	effective := &Config{
+		APIKey:   globalConfig.APIKey,
+		Name:     globalConfig.Name,
+		Model:    globalConfig.Model,
+		Provider: globalConfig.Provider,
+	}
+
+	if localConfig.APIKey != "" {
+		effective.APIKey = localConfig.APIKey
+	}
+	if localConfig.Name != "" {
+		effective.Name = localConfig.Name
+	}
+	if localConfig.Model != "" {
+		effective.Model = localConfig.Model
+	}
+	if localConfig.Provider != "" {
+		effective.Provider = localConfig.Provider
+	}
+
+	return effective
+}
+
 func saveConfig(path string, config *Config) error {
 	data, err := yaml.Marshal(config)
 	if err != nil {
@@ -143,12 +207,29 @@ func saveConfig(path string, config *Config) error {
 	return os.WriteFile(path, data, 0600)
 }
 
-func showConfig(path string) {
-	config := loadConfig(path)
+func showConfigWithScope() {
+	if local {
+		// Show only local config
+		path := getLocalConfigPath()
+		fmt.Println("=== Local Configuration ===")
+		fmt.Printf("Config file: %s\n\n", path)
+		printConfig(loadConfig(path))
+	} else if global {
+		// Show only global config
+		path := getGlobalConfigPath()
+		fmt.Println("=== Global Configuration ===")
+		fmt.Printf("Config file: %s\n\n", path)
+		printConfig(loadConfig(path))
+	} else {
+		// Show effective config (merged)
+		fmt.Println("=== Effective Configuration ===")
+		fmt.Printf("Global: %s\n", getGlobalConfigPath())
+		fmt.Printf("Local:  %s\n\n", getLocalConfigPath())
+		printConfig(LoadEffectiveConfig())
+	}
+}
 
-	fmt.Println("=== Orka Configuration ===")
-	fmt.Printf("Config file: %s\n\n", path)
-
+func printConfig(config *Config) {
 	if config.APIKey != "" {
 		// Mask the API key for security
 		masked := config.APIKey
