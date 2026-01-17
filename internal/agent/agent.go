@@ -23,6 +23,7 @@ func NewRunner(config *types.WorkflowConfig) *Runner {
 	}
 
 	for name, model := range config.Models {
+		fmt.Printf("DEBUG: Creating client for model '%s' with provider='%s' model='%s'\n", name, model.Provider, model.Model)
 		runner.Clients[name] = NewLLMClient(
 			model.Provider,
 			model.Model,
@@ -35,12 +36,12 @@ func NewRunner(config *types.WorkflowConfig) *Runner {
 }
 
 var spinnerStyles = [][]string{
-	{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},       // dots
-	{"◐", "◓", "◑", "◒"},                                     // circle
-	{"▖", "▘", "▝", "▗"},                                     // square
-	{"←", "↖", "↑", "↗", "→", "↘", "↓", "↙"},                 // arrows
-	{"◴", "◷", "◶", "◵"},                                     // pie
-	{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},                 // braille
+	{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}, // dots
+	{"◐", "◓", "◑", "◒"},                     // circle
+	{"▖", "▘", "▝", "▗"},                     // square
+	{"←", "↖", "↑", "↗", "→", "↘", "↓", "↙"}, // arrows
+	{"◴", "◷", "◶", "◵"},                     // pie
+	{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}, // braille
 }
 
 func getSpinnerForAgent(agentID string) []string {
