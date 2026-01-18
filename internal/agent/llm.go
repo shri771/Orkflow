@@ -31,6 +31,12 @@ func NewLLMClient(provider string, model string, apiKey string, endpoint string)
 			Model:    model,
 		}
 	default:
+		// Use generic OpenAI-compatible client for any other provider
+		// This auto-handles: groq, mistral, together, perplexity, openrouter, etc.
+		if apiKey != "" {
+			return NewGenericClient(provider, model, apiKey, endpoint)
+		}
+		// Fallback to Ollama if no API key
 		return &OllamaClient{
 			Endpoint: "http://localhost:11434",
 			Model:    model,

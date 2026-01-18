@@ -1,0 +1,20 @@
+# Tool #2: file - Filesystem Operations
+# Demonstrates the file tool for reading, writing, and listing files
+
+models:
+  gpt4:
+    provider: openai
+    model: gpt-4o-mini
+
+agents:
+  - id: file_agent
+    role: File Inspector
+    goal: List all files in the /tmp directory using the file tool.
+    model: gpt4
+    tools:
+      - file
+
+workflow:
+  type: sequential
+  steps:
+    - agent: file_agent

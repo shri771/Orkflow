@@ -1,0 +1,41 @@
+# Parallel Workflow YAML Example
+# Backend + Frontend run in parallel, Tech Lead consolidates
+
+models:
+  gpt4:
+    provider: openai
+    model: gpt-4o-mini
+  gemini:
+    provider: google
+    model: gemini-2.0-flash
+
+agents:
+  - id: backend_dev
+    role: Backend Architect
+    goal: Design a database schema for an e-commerce platform.
+    model: gpt4
+    outputs:
+      - db_schema
+
+  - id: frontend_dev
+    role: UI Designer
+    goal: Design the homepage layout for an e-commerce platform.
+    model: gemini
+    outputs:
+      - ui_layout
+
+  - id: tech_lead
+    role: Tech Lead
+    goal: Review the Database Schema and UI Layout and produce an integration report.
+    model: gpt4
+    requires:
+      - db_schema
+      - ui_layout
+
+workflow:
+  type: parallel
+  branches:
+    - backend_dev
+    - frontend_dev
+  then:
+    agent: tech_lead

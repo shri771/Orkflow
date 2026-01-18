@@ -14,7 +14,7 @@ type GeminiClient struct {
 }
 
 func (g *GeminiClient) Generate(prompt string) (string, error) {
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", g.Model, g.APIKey)
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1/models/%s:generateContent?key=%s", g.Model, g.APIKey)
 
 	payload := map[string]interface{}{
 		"contents": []map[string]interface{}{

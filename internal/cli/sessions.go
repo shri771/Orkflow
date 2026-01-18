@@ -78,46 +78,56 @@ Examples:
 		fmt.Printf("║  📨 Messages: %-43d ║\n", len(session.Messages))
 		fmt.Println("╠═══════════════════════════════════════════════════════════╣")
 
-		// Group messages by parallel execution (same timestamp range = parallel)
-		// For now, detect parallel by checking if agents ran close together
-		if len(session.Messages) >= 2 {
-			// Check for parallel pattern: multiple agents with similar timestamps before a final one
-			parallelAgents := []memory.Message{}
-			finalAgent := memory.Message{}
+		// Display workflow visualization
+		if len(session.Messages) >= 1 {
+			fmt.Println("║                    WORKFLOW EXECUTION                     ║")
+			fmt.Println("╠═══════════════════════════════════════════════════════════╣")
 
-			// Simple heuristic: if first N-1 messages are close in time, they're parallel
-			for i, msg := range session.Messages {
-				if i < len(session.Messages)-1 {
-					parallelAgents = append(parallelAgents, msg)
-				} else {
-					finalAgent = msg
+			// Check if this looks like a parallel workflow (3+ messages with consolidator)
+			isParallel := len(session.Messages) >= 3
+
+			if isParallel && len(session.Messages) >= 3 {
+				// Parallel workflow: show branches converging
+				parallelAgents := session.Messages[:len(session.Messages)-1]
+				finalAgent := session.Messages[len(session.Messages)-1]
+
+				if len(parallelAgents) >= 2 {
+					fmt.Println("║  ┌─────────────────────┐   ┌─────────────────────┐       ║")
+					fmt.Printf("║  │ %-19s │   │ %-19s │       ║\n",
+						truncateStr(parallelAgents[0].AgentID, 19),
+						truncateStr(parallelAgents[1].AgentID, 19))
+					fmt.Printf("║  │ %-19s │   │ %-19s │       ║\n",
+						truncateStr(parallelAgents[0].Role, 19),
+						truncateStr(parallelAgents[1].Role, 19))
+					fmt.Println("║  └─────────────────────┘   └─────────────────────┘       ║")
+					fmt.Println("║            ╲                     ╱                       ║")
+					fmt.Println("║             ╲                   ╱                        ║")
+					fmt.Println("║              ▼                 ▼                         ║")
+					fmt.Println("║         ┌─────────────────────────┐                      ║")
+					fmt.Printf("║         │ %-23s │                      ║\n", truncateStr(finalAgent.AgentID, 23))
+					fmt.Printf("║         │ %-23s │                      ║\n", truncateStr(finalAgent.Role, 23))
+					fmt.Println("║         └─────────────────────────┘                      ║")
 				}
-			}
+			} else {
+				// Sequential workflow: show linear flow
+				for i, msg := range session.Messages {
+					icon := "📝"
+					if msg.Role == "Backend Engineer" || msg.Role == "Math Assistant" {
+						icon = "⚙️"
+					} else if msg.Role == "Frontend Engineer" || msg.Role == "File Inspector" || msg.Role == "File Manager" {
+						icon = "🎨"
+					} else if msg.Role == "Tech Lead" || msg.Role == "reviewer" {
+						icon = "👀"
+					}
 
-			// Display parallel branches
-			if len(parallelAgents) > 1 {
-				fmt.Println("║                    PARALLEL EXECUTION                     ║")
-				fmt.Println("║  ┌─────────────────────┐   ┌─────────────────────┐       ║")
+					fmt.Printf("║  %s Step %d: %-45s ║\n", icon, i+1, truncateStr(msg.AgentID, 45))
+					fmt.Printf("║     Role: %-49s ║\n", truncateStr(msg.Role, 49))
 
-				// Show first two parallel agents
-				agent1 := truncateStr(parallelAgents[0].AgentID, 19)
-				agent2 := ""
-				if len(parallelAgents) > 1 {
-					agent2 = truncateStr(parallelAgents[1].AgentID, 19)
+					if i < len(session.Messages)-1 {
+						fmt.Println("║                         │                               ║")
+						fmt.Println("║                         ▼                               ║")
+					}
 				}
-
-				fmt.Printf("║  │ %-19s │   │ %-19s │       ║\n", agent1, agent2)
-				fmt.Printf("║  │ %-19s │   │ %-19s │       ║\n",
-					truncateStr(parallelAgents[0].Role, 19),
-					truncateStr(safeGetRole(parallelAgents, 1), 19))
-				fmt.Println("║  └─────────────────────┘   └─────────────────────┘       ║")
-				fmt.Println("║            ╲                     ╱                       ║")
-				fmt.Println("║             ╲                   ╱                        ║")
-				fmt.Println("║              ▼                 ▼                         ║")
-				fmt.Println("║         ┌─────────────────────────┐                      ║")
-				fmt.Printf("║         │ %-23s │                      ║\n", truncateStr(finalAgent.AgentID, 23))
-				fmt.Printf("║         │ %-23s │                      ║\n", truncateStr(finalAgent.Role, 23))
-				fmt.Println("║         └─────────────────────────┘                      ║")
 			}
 		}
 
