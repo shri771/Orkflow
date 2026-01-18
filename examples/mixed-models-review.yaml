@@ -1,0 +1,34 @@
+# Mixed Models Example
+# Uses GPT-4o-mini for drafting and GPT-4o for review
+
+models:
+  fast:
+    provider: openai
+    model: gpt-4o-mini
+  
+  smart:
+    provider: openai
+    model: gpt-4o
+
+agents:
+  - id: coder
+    role: Junior Developer
+    goal: Write a Python function that calculates the Fibonacci sequence.
+    model: fast
+    outputs:
+      - code_draft
+
+  - id: reviewer
+    role: Senior Developer
+    goal: |
+      Review the code for bugs, performance issues, and best practices.
+      Provide specific feedback and an improved version if needed.
+    model: smart
+    requires:
+      - code_draft
+
+workflow:
+  type: sequential
+  steps:
+    - agent: coder
+    - agent: reviewer

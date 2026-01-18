@@ -1,0 +1,32 @@
+# GPT-4o Full Power Example
+# Uses the flagship GPT-4o model for complex reasoning
+
+models:
+  gpt4o:
+    provider: openai
+    model: gpt-4o
+
+agents:
+  - id: strategist
+    role: Business Strategist
+    goal: |
+      Analyze the competitive landscape for AI startups in 2025.
+      Identify 3 key opportunities and 3 major risks.
+    model: gpt4o
+    outputs:
+      - strategy_report
+
+  - id: advisor
+    role: Investment Advisor
+    goal: |
+      Based on the strategy report, recommend whether to invest
+      in AI startups now or wait. Provide specific reasoning.
+    model: gpt4o
+    requires:
+      - strategy_report
+
+workflow:
+  type: sequential
+  steps:
+    - agent: strategist
+    - agent: advisor

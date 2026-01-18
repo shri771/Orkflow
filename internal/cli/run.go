@@ -181,6 +181,104 @@ Examples:
 			session.AddMessage(agentID, role, content)
 		})
 
+		// Display workflow start banner with diagram
+		fmt.Println("\n╔═══════════════════════════════════════════════════════════════════════════════╗")
+		fmt.Println("║                         🚀 STARTING WORKFLOW 🚀                               ║")
+		fmt.Println("╚═══════════════════════════════════════════════════════════════════════════════╝")
+
+		if config.Workflow != nil {
+			fmt.Println()
+			if config.Workflow.Type == "sequential" && len(config.Workflow.Steps) > 0 {
+				// Sequential diagram
+				fmt.Println("                              ┌─────────────────┐")
+				for i, step := range config.Workflow.Steps {
+					agent := getAgentByID(config.Agents, step.Agent)
+					role := step.Agent
+					if agent != nil && agent.Role != "" {
+						role = agent.Role
+					}
+					if len(role) > 15 {
+						role = role[:12] + "..."
+					}
+					fmt.Printf("                              │ %-15s │\n", role)
+					fmt.Println("                              └────────┬────────┘")
+					if i < len(config.Workflow.Steps)-1 {
+						fmt.Println("                                       │")
+						fmt.Println("                                       ▼")
+						fmt.Println("                              ┌─────────────────┐")
+					}
+				}
+			} else if config.Workflow.Type == "parallel" && len(config.Workflow.Branches) > 0 {
+				// Parallel diagram
+				branchCount := len(config.Workflow.Branches)
+
+				// Top branches
+				fmt.Print("           ")
+				for i := 0; i < branchCount; i++ {
+					fmt.Print("┌─────────────────┐")
+					if i < branchCount-1 {
+						fmt.Print("     ")
+					}
+				}
+				fmt.Println()
+
+				fmt.Print("           ")
+				for i, branchID := range config.Workflow.Branches {
+					agent := getAgentByID(config.Agents, branchID)
+					role := branchID
+					if agent != nil && agent.Role != "" {
+						role = agent.Role
+					}
+					if len(role) > 15 {
+						role = role[:12] + "..."
+					}
+					fmt.Printf("│ %-15s │", role)
+					if i < branchCount-1 {
+						fmt.Print("     ")
+					}
+				}
+				fmt.Println()
+
+				fmt.Print("           ")
+				for i := 0; i < branchCount; i++ {
+					fmt.Print("└────────┬────────┘")
+					if i < branchCount-1 {
+						fmt.Print("     ")
+					}
+				}
+				fmt.Println()
+
+				// Converging arrows
+				fmt.Print("                    ")
+				for i := 0; i < branchCount; i++ {
+					fmt.Print("│")
+					if i < branchCount-1 {
+						fmt.Print("                        ")
+					}
+				}
+				fmt.Println()
+
+				fmt.Println("                    └────────────┬───────────┘")
+				fmt.Println("                                 ▼")
+
+				// Then agent
+				if config.Workflow.Then != nil {
+					agent := getAgentByID(config.Agents, config.Workflow.Then.Agent)
+					role := config.Workflow.Then.Agent
+					if agent != nil && agent.Role != "" {
+						role = agent.Role
+					}
+					if len(role) > 15 {
+						role = role[:12] + "..."
+					}
+					fmt.Println("                        ┌─────────────────┐")
+					fmt.Printf("                        │ %-15s │\n", role)
+					fmt.Println("                        └─────────────────┘")
+				}
+			}
+			fmt.Println()
+		}
+
 		output, err := executor.Execute()
 		if err != nil {
 			// Save partial session progress before exiting
@@ -197,8 +295,21 @@ Examples:
 				fmt.Println("║  💡 QUOTA EXCEEDED - Switch to a different model          ║")
 				fmt.Println("╠═══════════════════════════════════════════════════════════╣")
 				fmt.Println("║  Try one of these:                                        ║")
-				fmt.Println("║  --use-provider ollama --use-model llama3                 ║")
-				fmt.Println("║  --use-model gemini-2.0-flash (different quota bucket)    ║")
+				fmt.Println("║  --use-provider openai --use-model gpt-4o-mini            ║")
+				fmt.Println("║  Wait a few minutes and retry with --continue             ║")
+				fmt.Println("╚═══════════════════════════════════════════════════════════╝")
+			}
+
+			// Show helpful tip for API key errors
+			errStr := err.Error()
+			if strings.Contains(errStr, "API_KEY") || strings.Contains(errStr, "invalid_api_key") || strings.Contains(errStr, "API key") {
+				fmt.Println("\n╔═══════════════════════════════════════════════════════════╗")
+				fmt.Println("║  🔑 API KEY ERROR - Check your credentials                ║")
+				fmt.Println("╠═══════════════════════════════════════════════════════════╣")
+				fmt.Println("║  Solutions:                                               ║")
+				fmt.Println("║  1. Set env: export GEMINI_API_KEY='...'                  ║")
+				fmt.Println("║  2. Set env: export OPENAI_API_KEY='...'                  ║")
+				fmt.Println("║  3. Override: --use-provider openai --use-model gpt-4o-mini║")
 				fmt.Println("╚═══════════════════════════════════════════════════════════╝")
 			}
 			os.Exit(1)
@@ -226,9 +337,16 @@ Examples:
 		// Cleanup old sessions
 		memory.CleanupOldSessions()
 
-		fmt.Println("\n--- Final Output ---")
+		// Decorated final output
+		fmt.Println("\n╔═══════════════════════════════════════════════════════════════════════════════╗")
+		fmt.Println("║                              ✨ WORKFLOW COMPLETE ✨                           ║")
+		fmt.Println("╚═══════════════════════════════════════════════════════════════════════════════╝")
+		fmt.Println()
 		fmt.Println(output)
-		fmt.Printf("\n💾 Session saved: %s\n", session.ID)
+		fmt.Println()
+		fmt.Println("╔═══════════════════════════════════════════════════════════════════════════════╗")
+		fmt.Printf("║  💾 Session: %-64s ║\n", session.ID)
+		fmt.Println("╚═══════════════════════════════════════════════════════════════════════════════╝")
 	},
 }
 
@@ -317,4 +435,14 @@ func getEnvKeyName(provider string) string {
 	default:
 		return strings.ToUpper(provider) + "_API_KEY"
 	}
+}
+
+// getAgentByID finds an agent by ID from the agents list
+func getAgentByID(agents []types.Agent, id string) *types.Agent {
+	for i := range agents {
+		if agents[i].ID == id {
+			return &agents[i]
+		}
+	}
+	return nil
 }
