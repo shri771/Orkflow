@@ -1,0 +1,30 @@
+# GPT-3.5 Turbo Fast Example
+# Uses the fast and cheap GPT-3.5 model for quick tasks
+
+models:
+  gpt35:
+    provider: openai
+    model: gpt-3.5-turbo
+
+agents:
+  - id: summarizer
+    role: Text Summarizer
+    goal: Summarize the benefits of remote work in 3 bullet points.
+    model: gpt35
+
+  - id: translator
+    role: Translator
+    goal: Translate the summary into Spanish.
+    model: gpt35
+
+  - id: formatter
+    role: Formatter
+    goal: Format the Spanish translation as a professional email.
+    model: gpt35
+
+workflow:
+  type: sequential
+  steps:
+    - agent: summarizer
+    - agent: translator
+    - agent: formatter
