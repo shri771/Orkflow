@@ -14,6 +14,8 @@ type SharedMemory struct {
 	data      map[string]interface{}
 	sessionID string
 	cond      *sync.Cond
+	aborted   bool   // Signals that workflow has failed
+	abortErr  string // Error message for abort
 }
 
 // NewSharedMemory creates a new SharedMemory instance for a session
@@ -21,9 +23,26 @@ func NewSharedMemory(sessionID string) *SharedMemory {
 	sm := &SharedMemory{
 		data:      make(map[string]interface{}),
 		sessionID: sessionID,
+		aborted:   false,
 	}
 	sm.cond = sync.NewCond(&sm.mu)
 	return sm
+}
+
+// Abort signals all waiting goroutines to stop waiting
+func (sm *SharedMemory) Abort(err string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	sm.aborted = true
+	sm.abortErr = err
+	sm.cond.Broadcast() // Wake up all waiters
+}
+
+// IsAborted returns whether the shared memory was aborted
+func (sm *SharedMemory) IsAborted() bool {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.aborted
 }
 
 // Set stores a value under a key. This is thread-safe and will notify
@@ -66,6 +85,11 @@ func (sm *SharedMemory) WaitFor(key string, timeout time.Duration) (interface{},
 	defer sm.mu.Unlock()
 
 	for {
+		// Check if aborted
+		if sm.aborted {
+			return nil, fmt.Errorf("workflow aborted: %s", sm.abortErr)
+		}
+
 		// Check if key exists
 		if val, ok := sm.data[key]; ok {
 			return val, nil

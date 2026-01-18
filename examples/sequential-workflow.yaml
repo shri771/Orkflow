@@ -1,0 +1,31 @@
+# Sequential Workflow YAML Example
+# Researcher → Writer pipeline using shared memory
+
+models:
+  gpt4:
+    provider: openai
+    model: gpt-4o-mini
+  gemini:
+    provider: google
+    model: gemini-2.0-flash
+
+agents:
+  - id: researcher
+    role: Research Assistant
+    goal: Research the latest advancements in solid-state batteries for EVs.
+    model: gpt4
+    outputs:
+      - research_notes
+
+  - id: writer
+    role: Tech Journalist
+    goal: Using the research notes, write a blog post about the future of EVs.
+    model: gemini
+    requires:
+      - research_notes
+
+workflow:
+  type: sequential
+  steps:
+    - agent: researcher
+    - agent: writer

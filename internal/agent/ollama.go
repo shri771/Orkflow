@@ -2,11 +2,15 @@ package agent
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
+
+const OllamaTimeout = 3 * time.Minute // Max time for generation
 
 type OllamaClient struct {
 	Endpoint string
@@ -22,7 +26,12 @@ func (o *OllamaClient) Generate(prompt string) (string, error) {
 
 	body, _ := json.Marshal(payload)
 	url := o.Endpoint + "/api/generate"
-	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+
+	// Create request with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), OllamaTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -31,6 +40,9 @@ func (o *OllamaClient) Generate(prompt string) (string, error) {
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("TIMEOUT: Ollama generation exceeded %v (try a faster model or shorter prompt)", OllamaTimeout)
+		}
 		return "", err
 	}
 	defer resp.Body.Close()

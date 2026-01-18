@@ -1,0 +1,23 @@
+# Tool Enabled Workflow YAML Example
+# Agent with access to calc and file tools
+
+models:
+  gpt4:
+    provider: openai
+    model: gpt-4o-mini
+
+agents:
+  - id: analyst
+    role: Data Analyst
+    goal: |
+      1. Calculate 2^10 using the calc tool.
+      2. List files in /tmp using the file tool.
+    model: gpt4
+    tools:
+      - calc
+      - file
+
+workflow:
+  type: sequential
+  steps:
+    - agent: analyst

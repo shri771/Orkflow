@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"Orkflow/internal/agent"
+	"Orkflow/internal/logging"
+	"Orkflow/internal/mcp"
 	"Orkflow/internal/memory"
 	"Orkflow/pkg/types"
 )
@@ -14,6 +16,8 @@ type Executor struct {
 	Runner       *agent.Runner
 	State        *State
 	SharedMemory *memory.SharedMemory
+	MCPClient    *mcp.Client
+	Logger       *logging.Logger
 }
 
 func NewExecutor(config *types.WorkflowConfig) *Executor {
@@ -31,17 +35,43 @@ func NewExecutor(config *types.WorkflowConfig) *Executor {
 	runner := agent.NewRunner(config)
 	runner.SharedMemory = sharedMem // Pass shared memory to runner
 
-	return &Executor{
+	executor := &Executor{
 		Config:       config,
 		Runner:       runner,
 		State:        NewState(totalSteps),
 		SharedMemory: sharedMem,
 	}
+
+	// Connect to MCP servers if defined
+	if len(config.MCPServers) > 0 {
+		executor.MCPClient = mcp.NewClient()
+		for name, serverConfig := range config.MCPServers {
+			mcpConfig := mcp.ServerConfig{
+				Command: serverConfig.Command,
+				Args:    serverConfig.Args,
+				Env:     serverConfig.Env,
+			}
+			if err := executor.MCPClient.Connect(name, mcpConfig); err != nil {
+				fmt.Printf("⚠️  Failed to connect to MCP server '%s': %v\n", name, err)
+			} else {
+				// Register MCP tools with the tool registry
+				mcp.RegisterMCPTools(executor.MCPClient, name)
+			}
+		}
+	}
+
+	return executor
 }
 
 // SetSessionHistory passes previous session context to the runner
 func (e *Executor) SetSessionHistory(history string) {
 	e.Runner.SetSessionHistory(history)
+}
+
+// SetLogger sets the logger for execution
+func (e *Executor) SetLogger(logger *logging.Logger) {
+	e.Logger = logger
+	e.Runner.Logger = logger // Pass logger to runner
 }
 
 // SetMessageCallback sets callback for when agents complete
@@ -116,6 +146,10 @@ func (e *Executor) executeParallel() (string, error) {
 			if err != nil {
 				if firstErr == nil {
 					firstErr = err
+				}
+				// Abort shared memory to wake up waiting agents
+				if e.SharedMemory != nil {
+					e.SharedMemory.Abort(err.Error())
 				}
 			} else {
 				results[id] = response

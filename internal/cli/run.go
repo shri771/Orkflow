@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"Orkflow/internal/engine"
+	"Orkflow/internal/logging"
 	"Orkflow/internal/memory"
 	"Orkflow/internal/parser"
 	"Orkflow/internal/vectorstore"
@@ -25,6 +26,7 @@ var (
 	useProvider    string
 	useModel       string
 	smartContext   bool
+	enableLogging  bool
 )
 
 var runCmd = &cobra.Command{
@@ -43,7 +45,11 @@ Session Options:
 
 Model Override:
   --use-provider    Override provider for all agents (e.g., ollama, gemini)
+  --use-provider    Override provider for all agents (e.g., ollama, gemini)
   --use-model       Override model name for all agents
+
+Logging:
+  --log             Enable file-based execution logging
 
 Examples:
   orka run workflow.yaml
@@ -146,7 +152,26 @@ Examples:
 			}
 		}
 
+		// Initialize logger if enabled
+		var logger *logging.Logger
+		if enableLogging {
+			var err error
+			logger, err = logging.NewLogger(session.ID, "")
+			if err != nil {
+				fmt.Printf("⚠️  Failed to create logger: %v\n", err)
+			} else {
+				fmt.Printf("📝 Logging execution to: %s\n", logger.GetFilePath())
+				defer logger.Close()
+			}
+		} else {
+			// Use null logger if disabled
+			logger = &logging.Logger{} // Will be handled as disabled
+		}
+
 		executor := engine.NewExecutor(config)
+		if enableLogging && logger != nil {
+			executor.SetLogger(logger)
+		}
 
 		// Pass session history (including user prompt) to executor
 		executor.SetSessionHistory(session.GetHistory())
@@ -215,6 +240,7 @@ func init() {
 	runCmd.Flags().BoolVar(&smartContext, "smart-context", false, "Auto-inject relevant context from past sessions")
 	runCmd.Flags().StringVar(&useProvider, "use-provider", "", "Override provider for all agents (e.g., ollama, gemini)")
 	runCmd.Flags().StringVar(&useModel, "use-model", "", "Override model for all agents (e.g., llama3, gemini-2.5-flash)")
+	runCmd.Flags().BoolVar(&enableLogging, "log", false, "Enable file-based execution logging")
 }
 
 func ensureAPIKeys(config *types.WorkflowConfig) error {
