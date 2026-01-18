@@ -18,6 +18,7 @@ type Executor struct {
 	SharedMemory *memory.SharedMemory
 	MCPClient    *mcp.Client
 	Logger       *logging.Logger
+	Stats        *ExecutionStats
 }
 
 func NewExecutor(config *types.WorkflowConfig) *Executor {
@@ -40,6 +41,7 @@ func NewExecutor(config *types.WorkflowConfig) *Executor {
 		Runner:       runner,
 		State:        NewState(totalSteps),
 		SharedMemory: sharedMem,
+		Stats:        NewExecutionStats(),
 	}
 
 	// Connect to MCP servers if defined
