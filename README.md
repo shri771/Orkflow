@@ -4,29 +4,38 @@
 
 Define your agents, wire their collaboration patterns, and run complex workflows — all without writing orchestration code.
 
-## Core Principle
-
 > *Configuration defines collaboration. Execution is automatic.*
 
-## Features
+---
+
+## ✨ Features
 
 | Feature | Description |
 |---------|-------------|
 | **Declarative YAML** | Define agents, roles, goals, and workflows in simple YAML |
 | **Sequential Execution** | Chain agents in order with automatic context passing |
-| **Parallel Execution** | Run agents concurrently with aggregation support |
+| **Parallel Execution** | Run agents concurrently with fan-out/fan-in aggregation |
 | **Shared Memory** | Agents publish/subscribe to data via `outputs`/`requires` |
 | **Multi-Provider** | OpenAI, Gemini, Anthropic, Ollama, and any OpenAI-compatible API |
 | **Built-in Tools** | `calc`, `file`, `script` tools for agent capabilities |
 | **MCP Support** | Connect external tool servers (filesystem, databases, etc.) |
 | **Session Persistence** | Automatic session saving and continuation |
 | **Execution Logs** | Detailed file-based logging with `--log` flag |
+| **Colored Output** | Beautiful terminal UI with ASCII diagrams |
+| **Cost Tracking** | Estimated API costs per workflow |
+| **Shell Completions** | Tab completion for bash/zsh/fish |
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ```bash
 # Build
 go build -o orka cmd/orka/main.go
+
+# Set API keys
+export OPENAI_API_KEY="sk-..."
+export GEMINI_API_KEY="AIza..."
 
 # Run a workflow
 ./orka run examples/sequential-workflow.yaml
@@ -42,9 +51,14 @@ go build -o orka cmd/orka/main.go
 
 # View session with workflow graph
 ./orka sessions show <session-id> --workflow
+
+# Shell completions
+source <(./orka completion zsh)
 ```
 
-## YAML Examples
+---
+
+## 📝 YAML Examples
 
 ### Sequential Workflow
 ```yaml
@@ -127,35 +141,43 @@ agents:
       - filesystem
 ```
 
-## CLI Commands
+---
+
+## 🛠️ CLI Commands
 
 | Command | Description |
 |---------|-------------|
 | `orka run <file.yaml>` | Execute a workflow |
 | `orka run <file.yaml> --log` | Execute with file logging |
 | `orka run <file.yaml> --continue` | Continue last session |
+| `orka run --use-provider <p> --use-model <m>` | Override model |
 | `orka validate <file.yaml>` | Validate workflow syntax |
 | `orka sessions list` | List all sessions |
 | `orka sessions show <id>` | Show session details |
 | `orka sessions show <id> --workflow` | Show workflow visualization |
+| `orka completion [bash\|zsh\|fish]` | Generate shell completions |
 
-## Environment Variables
+---
+
+## 🔑 Environment Variables
 
 | Variable | Provider |
 |----------|----------|
-| `OPENAI_API_KEY` | OpenAI |
+| `OPENAI_API_KEY` | OpenAI (GPT-4, GPT-3.5) |
 | `GEMINI_API_KEY` | Google Gemini |
 | `ANTHROPIC_API_KEY` | Anthropic Claude |
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 Orkflow/
 ├── cmd/orka/           # CLI entrypoint
 ├── internal/
 │   ├── agent/          # LLM clients (OpenAI, Gemini, Ollama, etc.)
-│   ├── cli/            # CLI commands
-│   ├── engine/         # Workflow executor
+│   ├── cli/            # CLI commands + UI utilities
+│   ├── engine/         # Workflow executor + stats
 │   ├── logging/        # Execution logger
 │   ├── mcp/            # MCP client and tool adapter
 │   ├── memory/         # Session and shared memory
@@ -165,6 +187,47 @@ Orkflow/
 └── examples/           # Example workflows
 ```
 
-## License
+---
+
+## 📊 Example Output
+
+```
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                         🚀 STARTING WORKFLOW 🚀                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+                              ┌─────────────────┐
+                              │ Research Assi...│
+                              └────────┬────────┘
+                                       │
+                                       ▼
+                              ┌─────────────────┐
+                              │ Tech Journalist │
+                              └────────┬────────┘
+
+[researcher] Running agent: Research Assistant
+[researcher] ✓ Completed in 8.3s (2719 chars)
+[researcher] 📤 Published 'research_notes' to shared memory
+[writer] ⏳ Waiting for required data: [research_notes]
+[writer] ✓ Received 'research_notes' from shared memory
+[writer] Running agent: Tech Journalist
+[writer] ✓ Completed in 12.1s (3842 chars)
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                              ✨ WORKFLOW COMPLETE ✨                           ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+[Output...]
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║  💾 Session: 8d6ddfb2                                                         ║
+║  ⏱️  Time: 20.4s                                                               ║
+║  💰 Est. Cost: $0.001234                                                       ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+```
+
+---
+
+## 📜 License
 
 MIT
